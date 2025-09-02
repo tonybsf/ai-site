@@ -1,0 +1,123 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+# Install pre-commit with uv for speed:
+# uv tool install pre-commit --with pre-commit-uv --force-reinstall
+
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  # Python linting and formatting with Ruff
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.1
+    hooks:
+      # Run the linter with --fix
+      - id: ruff
+        args: [--fix, --config=backend/ruff.toml]
+        files: ^backend/
+      # Run the formatter
+      - id: ruff-format
+        args: [--config=backend/ruff.toml]
+        files: ^backend/
+
+  # Python type checking - run from backend directory
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: bash -c 'cd backend && uv run mypy .'
+        language: system
+        files: ^backend/.*\.py$
+        pass_filenames: false
+
+  # Security checks
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: package\.lock\.json
+
+  # Django specific
+  - repo: https://github.com/adamchainz/django-upgrade
+    rev: "1.22.1"
+    hooks:
+      - id: django-upgrade
+        args: [--target-version, "5.1"]
+        files: ^backend/
+
+  # Frontend - Biome (replaces ESLint + Prettier for JS/TS)
+  - repo: https://github.com/biomejs/pre-commit
+    rev: v0.6.0
+    hooks:
+      - id: biome-check
+        additional_dependencies: ["@biomejs/biome@1.9.4"]
+        files: \.(js|jsx|ts|tsx|json)$
+        exclude: ^(frontend/node_modules|frontend/.next|frontend/out)/
+
+  # Frontend - Type checking
+  - repo: local
+    hooks:
+      - id: typescript-check
+        name: TypeScript type checking
+        entry: bash -c 'cd frontend && npm run type-check'
+        language: system
+        files: ^frontend/.*\.(ts|tsx)$
+        pass_filenames: false
+
+  # AI-friendly: Check for TODO/FIXME comments
+  - repo: local
+    hooks:
+      - id: check-todos
+        name: Check for TODO/FIXME comments
+        entry: bash -c 'grep -rE "(TODO|FIXME|XXX|HACK|BUG)" --include="*.ts" --include="*.tsx" --include="*.py" . && echo "Found TODO/FIXME comments. Please address or create issues." || exit 0'
+        language: system
+        pass_filenames: false
+        types: [text]
+
+
+  # Markdown
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.43.0
+    hooks:
+      - id: markdownlint
+        args: [--fix]
+
+  # Docker
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+
+  # Keep requirements.txt in sync with pyproject.toml (if using uv)
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.5.12
+    hooks:
+      # Lint with a `uv.lock` file
+      - id: uv-lock
+
+# Configuration
+ci:
+  autofix_prs: true
+  autofix_commit_msg: '[pre-commit.ci] auto fixes from pre-commit hooks'
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false
